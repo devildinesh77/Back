@@ -16,12 +16,23 @@ def get_download_link():
         
     url = data['url']
     
+    req_format = data.get('format', 'mp4')
+    
     # Configure yt-dlp to extract metadata only, without downloading the video
-    ydl_opts = {
-        'format': 'best',
-        'noplaylist': True,
-        'quiet': True,
-    }
+    if req_format == 'mp3':
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'quiet': True,
+        }
+        ext = 'mp3'
+    else:
+        ydl_opts = {
+            'format': 'best',
+            'noplaylist': True,
+            'quiet': True,
+        }
+        ext = 'mp4'
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -36,11 +47,18 @@ def get_download_link():
             if not download_url:
                 return jsonify({'error': 'Could not extract direct download URL'}), 500
                 
-            return jsonify({
+            response = jsonify({
                 'title': title,
                 'download_url': download_url,
                 'thumbnail': thumbnail
-            }), 200
+            })
+            # Content-Disposition forces the browser to download the file
+            safe_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            if not safe_title:
+                safe_title = "download"
+            response.headers['Content-Disposition'] = f'attachment; filename="{safe_title}.{ext}"'
+            
+            return response, 200
             
     except Exception as e:
         return jsonify({'error': f'Extraction failed: {str(e)}'}), 500
